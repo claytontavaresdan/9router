@@ -13,7 +13,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const [formData, setFormData] = useState({
     name: "",
     priority: 1,
-    apiKey: "",
+    apiKey: ""
   });
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
@@ -34,7 +34,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
-        apiKey: "",
+        apiKey: ""
       });
       // Load Azure-specific data if present
       if (connection.provider === "azure" && connection.providerSpecificData) {
@@ -54,6 +54,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         const savedRegion = connection.providerSpecificData?.region || providerCfg.defaultRegion || providerCfg.regions[0]?.id || "";
         setRegion(savedRegion);
       }
+      // Load kiroStreamingPassthrough from providerSpecificData
+      setKiroStreamingPassthrough(connection?.providerSpecificData?.kiroStreamingPassthrough === true);
       setTestResult(null);
       setValidationResult(null);
     }
@@ -62,14 +64,21 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const isOAuth = connection?.authType === "oauth";
   const isAzure = connection?.provider === "azure";
   const isCloudflareAi = connection?.provider === "cloudflare-ai";
+  const isKiro = connection?.provider === "kiro";
   const isCompatible = connection
     ? (isOpenAICompatibleProvider(connection.provider) || isAnthropicCompatibleProvider(connection.provider))
     : false;
   const providerRegions = connection ? (AI_PROVIDERS?.[connection.provider]?.regions || null) : null;
 
+  // Load kiroStreamingPassthrough from providerSpecificData
+  const [kiroStreamingPassthrough, setKiroStreamingPassthrough] = useState(
+    connection?.providerSpecificData?.kiroStreamingPassthrough === true
+  );
+
   // Build providerSpecificData for region-aware providers
   const buildRegionSpecificData = () => {
     if (providerRegions && region) return { ...((connection?.providerSpecificData) || {}), region };
+    if (isKiro && kiroStreamingPassthrough) return { ...((connection?.providerSpecificData) || {}), kiroStreamingPassthrough: true };
     return undefined;
   };
 
@@ -154,7 +163,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           updates.lastErrorAt = null;
         }
       }
-      
+
       // Add Azure-specific data if this is an Azure connection
       if (isAzure) {
         updates.providerSpecificData = {
@@ -171,7 +180,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
       if (providerRegions && region) {
         updates.providerSpecificData = buildRegionSpecificData();
       }
-      
+
       await onSave(updates);
     } finally {
       setSaving(false);
@@ -211,8 +220,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                 placeholder="Enter new API key"
-                hint="Leave blank to keep the current API key."
                 className="flex-1"
+                hint="Leave blank to keep the current API key."
               />
               <div className="pt-6">
                 <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
@@ -264,6 +273,21 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           </div>
         )}
 
+        {isCloudflareAi && (
+          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
+            <h3 className="font-semibold mb-3 text-sm">Cloudflare Workers AI</h3>
+            <Input
+              label="Account ID"
+              value={cloudflareData.accountId}
+              onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
+              placeholder="abc123def456..."
+            />
+            <p className="text-xs text-text-muted mt-2">
+              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+            </p>
+          </div>
+        )}
+
         {providerRegions && (
           <Select
             label="Region"
@@ -272,7 +296,20 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
           />
         )}
-
+        {isKiro && (
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-text-main cursor-pointer">
+              <input
+                type="checkbox"
+                checked={kiroStreamingPassthrough}
+                onChange={(e) => setKiroStreamingPassthrough(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span>Enable streaming passthrough (true streaming, no buffering)</span>
+            </label>
+            <span className="text-xs text-text-muted">(Experimental)</span>
+          </div>
+        )}
         {!isCompatible && !isAzure && !isCloudflareAi && (
           <div className="flex items-center gap-3">
             <Button onClick={handleTest} variant="secondary" disabled={testing}>
@@ -313,4 +350,3 @@ EditConnectionModal.propTypes = {
   onSave: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
 };
-

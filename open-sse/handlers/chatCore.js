@@ -329,6 +329,17 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Most executors return their registry format. Cursor AgentService is an
   // exception: it is decoded by the executor into OpenAI-compatible output.
   let providerResponseFormat = targetFormat;
+
+  // Inject stream_options for OpenAI-compatible streaming to get usage data (#3081)
+  // Use runtimeTransport (selected by sourceFormat) or targetFormat, not base transport,
+  // because multi-endpoint providers (e.g., DeepSeek) may use claude transport for claude sourceFormat
+  const effectiveFormat = credentials?.runtimeTransport?.format || targetFormat;
+  if (stream && translatedBody && effectiveFormat === "openai") {
+    if (!translatedBody.stream_options) {
+      translatedBody.stream_options = { include_usage: true };
+    }
+  }
+
   try {
     const result = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions });
     providerResponse = result.response;
