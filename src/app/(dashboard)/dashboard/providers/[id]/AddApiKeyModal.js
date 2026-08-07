@@ -20,16 +20,18 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";
+  const isKiro = provider === "kiro";
   const providerRegions = AI_PROVIDERS?.[provider]?.regions || null;
   const defaultRegion = AI_PROVIDERS?.[provider]?.defaultRegion || providerRegions?.[0]?.id || "";
 
   const [formData, setFormData] = useState({
     name: "",
-    apiKey: "",
+    apiKey: "***",
     defaultModel: "",
     priority: 1,
     proxyPoolId: NONE_PROXY_POOL_VALUE,
     ollamaHostUrl: "",
+    kiroStreamingPassthrough: false
   });
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
@@ -69,6 +71,9 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     }
     if (providerRegions && region) {
       return { region };
+    }
+    if (isKiro && formData.kiroStreamingPassthrough) {
+      return { kiroStreamingPassthrough: true };
     }
     return undefined;
   };
@@ -291,6 +296,20 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             onChange={(e) => setRegion(e.target.value)}
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
           />
+        )}
+        {isKiro && (
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-text-main cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.kiroStreamingPassthrough}
+                onChange={(e) => setFormData({ ...formData, kiroStreamingPassthrough: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span>Enable streaming passthrough (true streaming, no buffering)</span>
+            </label>
+            <span className="text-xs text-text-muted">(Experimental)</span>
+          </div>
         )}
         {isCompatible && (
           <Input
